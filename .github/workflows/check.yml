@@ -20,7 +20,7 @@ jobs:
         id: get_commit
         run: |
           # APIを使って相手の最新コミットIDを取得
-          LATEST_SHA=$(curl -s https://api.github.com/repos/CANDY-HOUSE/.github/commits/main | jq -r '.sha')
+          LATEST_SHA=$(curl -s https://api.github.com/repos/CANDY-HOUSE/.github/commits/main/changelog.html | jq -r '.sha')
           echo "sha=$LATEST_SHA" >> $GITHUB_OUTPUT
           echo "最新のコミットIDは $LATEST_SHA です"
 
