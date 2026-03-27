@@ -33,24 +33,25 @@ jobs:
             echo "変更はありません。"
           fi
 
-      # 変更があった場合のみ、ここから下のステップが実行される
+      # Pythonのセットアップ（変更検知の前、または条件なしで置くのが安全）
       - name: Set up Python
-        if: steps.check_sha.outputs.changed == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
+      # 依存ライブラリのインストール（ここから if を外すと確実です）
       - name: Install dependencies
-        if: steps.check_sha.outputs.changed == 'true'
-        run: pip install requests requests_oauthlib
+        run: |
+          pip install requests requests_oauthlib
 
+      # 実際の投稿処理（ここは 'true' の時だけでOK）
       - name: Post to X
-        # if: steps.check_sha.outputs.changed == 'true'
-        # env:
-        #   X_API_KEY: ${{ secrets.X_API_KEY }}
-        #   X_API_SECRET: ${{ secrets.X_API_SECRET }}
-        #   X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
-        #   X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        if: steps.check_sha.outputs.changed == 'true'
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
         run: python post_to_x.py
 
       - name: Update last_sha.txt
