@@ -18,18 +18,18 @@ def get_file_diff(base, head):
             return "\n".join(added_lines)
     return "詳細はGitHubを確認してください。"
 
-def post_to_x(content):
-    # Xの140/280文字制限に配慮してトリミング
-    message = f"【SESAME アップデート】\n{content}"[:250] + "..."
+# def post_to_x(content):
+#     # Xの140/280文字制限に配慮してトリミング
+#     message = f"【SESAME アップデート】\n{content}"[:250] + "..."
     
-    oauth = OAuth1Session(
-        os.environ["X_API_KEY"],
-        os.environ["X_API_SECRET"],
-        os.environ["X_ACCESS_TOKEN"],
-        os.environ["X_ACCESS_TOKEN_SECRET"],
-    )
-    payload = {"text": message}
-    oauth.post("https://api.twitter.com/2/tweets", json=payload)
+#     oauth = OAuth1Session(
+#         os.environ["X_API_KEY"],
+#         os.environ["X_API_SECRET"],
+#         os.environ["X_ACCESS_TOKEN"],
+#         os.environ["X_ACCESS_TOKEN_SECRET"],
+#     )
+#     payload = {"text": message}
+#     oauth.post("https://api.twitter.com/2/tweets", json=payload)
 
 if __name__ == "__main__":
     # YAMLから渡された環境変数を使用
