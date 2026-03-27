@@ -38,4 +38,5 @@ if __name__ == "__main__":
     
     if last_sha and latest_sha:
         diff_text = get_file_diff(last_sha, latest_sha)
-        post_to_x(diff_text)
+        # post_to_x(diff_text)
+        print(diff_text)
