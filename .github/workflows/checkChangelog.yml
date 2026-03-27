@@ -46,7 +46,6 @@ jobs:
 
       # 実際の投稿処理（ここは 'true' の時だけでOK）
       - name: Check for changes
-        id: check_sha
         run: |
           LATEST_SHA=$(curl -s "https://api.github.com/repos/CANDY-HOUSE/.github/commits?path=changelog.html&per_page=1" | jq -r '.[0].sha')
           touch last_sha.txt
