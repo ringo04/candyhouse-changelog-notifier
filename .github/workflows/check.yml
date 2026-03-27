@@ -1,55 +1,64 @@
-name: Hourly Changelog Check
+name: Conditional Monitor
 
-on:
+# on:
 #   schedule:
-#     # 1時間に1回実行する設定（UTC時間なので日本時間の毎時0分頃）
 #     - cron: '0 * * * *'
-  workflow_dispatch: # 手動で「今すぐ実行」ボタンを押せるようにする設定
-  
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  
+  workflow_dispatch:
+
 jobs:
-  check-update:
+  check-and-post:
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check_sha.outputs.changed }}
     steps:
-      - name: Checkout my repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get latest commit from CANDY-HOUSE
-        id: get_commit
+      - name: Check for changes
+        id: check_sha
         run: |
-          # APIを使って相手の最新コミットIDを取得
-          LATEST_SHA=$(curl -s https://api.github.com/repos/CANDY-HOUSE/.github/commits/main/changelog.html | jq -r '.sha')
-          echo "sha=$LATEST_SHA" >> $GITHUB_OUTPUT
-          echo "最新のコミットIDは $LATEST_SHA です"
-
-      - name: Compare with last recorded commit
-        id: compare
-        run: |
-          # 前回保存したIDを読み込む（ファイルがなければ新規作成）
-          touch last_sha.txt
-          OLD_SHA=$(cat last_sha.txt)
+          # 最新のコミットSHAを取得
+          LATEST_SHA=$(curl -s "https://api.github.com/repos/CANDY-HOUSE/.github/commits?path=changelog.html&per_page=1" | jq -r '.[0].sha')
           
-          if [ "$OLD_SHA" != "${{ steps.get_commit.outputs.sha }}" ]; then
+          # 前回のSHAを読み込み
+          touch last_sha.txt
+          LAST_SHA=$(cat last_sha.txt)
+          
+          if [ "$LATEST_SHA" != "$LAST_SHA" ]; then
+            echo "latest_sha=$LATEST_SHA" >> $GITHUB_ENV
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "${{ steps.get_commit.outputs.sha }}" > last_sha.txt
-            echo "変更を検知しました！"
+            echo "変更を検知しました。"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "変更はありません。"
           fi
 
-      - name: Commit and Push if changed
-        if: steps.compare.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add last_sha.txt
-          git commit -m "Update last recorded commit: ${{ steps.get_commit.outputs.sha }}"
-          git push
+      # 変更があった場合のみ、ここから下のステップが実行される
+      - name: Set up Python
+        if: steps.check_sha.outputs.changed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-      # ここに「Xに投稿するステップ」を後で追加します！
-      - name: Notify to X (Placeholder)
-        if: steps.compare.outputs.changed == 'true'
-        run: echo "ここでXのAPIを叩いて投稿します"
+      - name: Install dependencies
+        if: steps.check_sha.outputs.changed == 'true'
+        run: pip install requests requests_oauthlib
+
+      - name: Post to X
+        if: steps.check_sha.outputs.changed == 'true'
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        run: python post_to_x.py
+
+      - name: Update last_sha.txt
+        if: steps.check_sha.outputs.changed == 'true'
+        run: |
+          echo "${{ env.latest_sha }}" > last_sha.txt
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add last_sha.txt
+          git commit -m "Update last_sha: ${{ env.latest_sha }}"
+          git push
