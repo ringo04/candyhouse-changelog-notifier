@@ -34,24 +34,24 @@ jobs:
           fi
 
       # 変更があった場合のみ、ここから下のステップが実行される
-      - name: Set up Python
-        if: steps.check_sha.outputs.changed == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
+      # - name: Set up Python
+      #   if: steps.check_sha.outputs.changed == 'true'
+      #   uses: actions/setup-python@v5
+      #   with:
+      #     python-version: '3.x'
 
-      - name: Install dependencies
-        if: steps.check_sha.outputs.changed == 'true'
-        run: pip install requests requests_oauthlib
+      # - name: Install dependencies
+      #   if: steps.check_sha.outputs.changed == 'true'
+      #   run: pip install requests requests_oauthlib
 
-      - name: Post to X
-        if: steps.check_sha.outputs.changed == 'true'
-        env:
-          X_API_KEY: ${{ secrets.X_API_KEY }}
-          X_API_SECRET: ${{ secrets.X_API_SECRET }}
-          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
-          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-        run: python post_to_x.py
+      # - name: Post to X
+      #   if: steps.check_sha.outputs.changed == 'true'
+      #   env:
+      #     X_API_KEY: ${{ secrets.X_API_KEY }}
+      #     X_API_SECRET: ${{ secrets.X_API_SECRET }}
+      #     X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+      #     X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+      #   run: python post_to_x.py
 
       - name: Update last_sha.txt
         if: steps.check_sha.outputs.changed == 'true'
