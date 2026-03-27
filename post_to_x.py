@@ -1,3 +1,6 @@
+import sys
+print("--- Pythonスクリプト開始 ---", flush=True)
+
 import os
 import requests
 from requests_oauthlib import OAuth1Session
