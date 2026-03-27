@@ -1,0 +1,64 @@
+name: Conditional Monitor
+
+on:
+  # schedule:
+    # - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check-and-post:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check_sha.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for changes
+        id: check_sha
+        run: |
+          # 最新のコミットSHAを取得
+          LATEST_SHA=$(curl -s "https://api.github.com/repos/CANDY-HOUSE/.github/commits?path=changelog.html&per_page=1" | jq -r '.[0].sha')
+          
+          # 前回のSHAを読み込み
+          touch last_sha.txt
+          LAST_SHA=$(cat last_sha.txt)
+          
+          if [ "$LATEST_SHA" != "$LAST_SHA" ]; then
+            echo "latest_sha=$LATEST_SHA" >> $GITHUB_ENV
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "変更を検知しました。"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "変更はありません。"
+          fi
+
+      # 変更があった場合のみ、ここから下のステップが実行される
+      - name: Set up Python
+        if: steps.check_sha.outputs.changed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        if: steps.check_sha.outputs.changed == 'true'
+        run: pip install requests requests_oauthlib
+
+      - name: Post to X
+        if: steps.check_sha.outputs.changed == 'true'
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        run: python post_to_x.py
+
+      - name: Update last_sha.txt
+        if: steps.check_sha.outputs.changed == 'true'
+        run: |
+          echo "${{ env.latest_sha }}" > last_sha.txt
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add last_sha.txt
+          git commit -m "Update last_sha: ${{ env.latest_sha }}"
+          git push
