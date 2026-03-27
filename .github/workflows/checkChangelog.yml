@@ -1,4 +1,4 @@
-name: Conditional Monitor
+name: chack changelog
 
 on:
   # schedule:
