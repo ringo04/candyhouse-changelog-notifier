@@ -1,6 +1,6 @@
 name: Hourly Changelog Check
 
-# on:
+on:
 #   schedule:
 #     # 1時間に1回実行する設定（UTC時間なので日本時間の毎時0分頃）
 #     - cron: '0 * * * *'
