@@ -48,6 +48,11 @@ jobs:
       - name: Post to X
         if: steps.check_sha.outputs.changed == 'true'
         env:
+          PYTHONUNBUFFERED: "1"
+          # ↓ ここを追加（Python側の os.environ.get("LAST_SHA") などに対応）
+          LAST_SHA: ${{ env.last_sha }} 
+          LATEST_SHA: ${{ env.latest_sha }}
+          # --------------------------------------------------
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
