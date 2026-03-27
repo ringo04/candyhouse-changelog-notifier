@@ -1,0 +1,52 @@
+name: Hourly Changelog Check
+
+on:
+  schedule:
+    # 1時間に1回実行する設定（UTC時間なので日本時間の毎時0分頃）
+    - cron: '0 * * * *'
+  workflow_dispatch: # 手動で「今すぐ実行」ボタンを押せるようにする設定
+
+jobs:
+  check-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout my repo
+        uses: actions/checkout@v4
+
+      - name: Get latest commit from CANDY-HOUSE
+        id: get_commit
+        run: |
+          # APIを使って相手の最新コミットIDを取得
+          LATEST_SHA=$(curl -s https://api.github.com/repos/CANDY-HOUSE/.github/commits/main | jq -r '.sha')
+          echo "sha=$LATEST_SHA" >> $GITHUB_OUTPUT
+          echo "最新のコミットIDは $LATEST_SHA です"
+
+      - name: Compare with last recorded commit
+        id: compare
+        run: |
+          # 前回保存したIDを読み込む（ファイルがなければ新規作成）
+          touch last_sha.txt
+          OLD_SHA=$(cat last_sha.txt)
+          
+          if [ "$OLD_SHA" != "${{ steps.get_commit.outputs.sha }}" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "${{ steps.get_commit.outputs.sha }}" > last_sha.txt
+            echo "変更を検知しました！"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "変更はありません。"
+          fi
+
+      - name: Commit and Push if changed
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_sha.txt
+          git commit -m "Update last recorded commit: ${{ steps.get_commit.outputs.sha }}"
+          git push
+
+      # ここに「Xに投稿するステップ」を後で追加します！
+      - name: Notify to X (Placeholder)
+        if: steps.compare.outputs.changed == 'true'
+        run: echo "ここでXのAPIを叩いて投稿します"
