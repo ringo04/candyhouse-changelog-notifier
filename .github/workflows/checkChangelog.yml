@@ -1,15 +1,16 @@
-name: chack changelog
+name: Check and Post Changelog
 
 on:
-  # schedule:
-    # - cron: '0 * * * *'
+  schedule:
+    - cron: '0 */3 * * *' # 3時間おき
   workflow_dispatch:
 
 jobs:
   check-and-post:
     runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.check_sha.outputs.changed }}
+    permissions:
+      contents: write # 最後にSHAを書き込むために必要
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,65 +18,55 @@ jobs:
       - name: Check for changes
         id: check_sha
         run: |
-          # 最新のコミットSHAを取得
-          LATEST_SHA=$(curl -s "https://api.github.com/repos/CANDY-HOUSE/.github/commits?path=changelog.html&per_page=1" | jq -r '.[0].sha')
+          # 最新のSHAを取得 (GitHubのレート制限対策としてトークンを使用)
+          LATEST_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/CANDY-HOUSE/.github/commits?path=changelog.html&per_page=1" | jq -r '.[0].sha')
           
-          # 前回のSHAを読み込み
-          touch last_sha.txt
-          LAST_SHA=$(cat last_sha.txt)
+          # 前回のSHAを読み込み（ファイルがない場合は空にする）
+          [ -f last_sha.txt ] && LAST_SHA=$(cat last_sha.txt) || LAST_SHA=""
           
           if [ "$LATEST_SHA" != "$LAST_SHA" ]; then
-            echo "latest_sha=$LATEST_SHA" >> $GITHUB_ENV
+            echo "new_sha=$LATEST_SHA" >> $GITHUB_ENV
+            echo "old_sha=$LAST_SHA" >> $GITHUB_ENV
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "変更を検知しました。"
+            echo "変更を検知しました: $LATEST_SHA"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "変更はありません。"
+            echo "変更なし。"
           fi
 
-      # Pythonのセットアップ（変更検知の前、または条件なしで置くのが安全）
+      # 変更があった時だけ Python を準備（ここが高速化のキモ）
       - name: Set up Python
+        if: steps.check_sha.outputs.changed == 'true'
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.10'
+          cache: 'pip' # キャッシュを有効化
 
-      # 依存ライブラリのインストール（ここから if を外すと確実です）
       - name: Install dependencies
-        run: |
-          pip install requests requests_oauthlib
+        if: steps.check_sha.outputs.changed == 'true'
+        run: pip install requests tweepy
 
-      # 実際の投稿処理（ここは 'true' の時だけでOK）
-      - name: Check for changes
-        run: |
-          LATEST_SHA=$(curl -s "https://api.github.com/repos/CANDY-HOUSE/.github/commits?path=changelog.html&per_page=1" | jq -r '.[0].sha')
-          touch last_sha.txt
-          LAST_SHA=$(cat last_sha.txt)
-          
-          # Pythonに渡すために、新旧両方のSHAを環境変数に入れる
-          echo "last_sha=$LAST_SHA" >> $GITHUB_ENV
-          echo "latest_sha=$LATEST_SHA" >> $GITHUB_ENV
-
-          if [ "$LATEST_SHA" != "$LAST_SHA" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Post to X (Test Mode)
+      - name: Post to X
         if: steps.check_sha.outputs.changed == 'true'
         env:
-          PYTHONUNBUFFERED: "1"
-          # ここでPythonの os.environ に値を橋渡しします
-          LAST_SHA: ${{ env.last_sha }}
-          LATEST_SHA: ${{ env.latest_sha }}
+          # Python 側で os.environ.get("LAST_SHA") などで取得可能
+          LAST_SHA: ${{ env.old_sha }}
+          LATEST_SHA: ${{ env.new_sha }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
         run: python post_to_x.py
 
       - name: Update last_sha.txt
         if: steps.check_sha.outputs.changed == 'true'
         run: |
-          echo "${{ env.latest_sha }}" > last_sha.txt
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          echo "${{ env.new_sha }}" > last_sha.txt
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git add last_sha.txt
-          git commit -m "Update last_sha: ${{ env.latest_sha }}"
+          # 他のプロセスとの競合を防ぐために再マージしてからプッシュ
+          git commit -m "Update changelog SHA to ${{ env.new_sha }}"
+          git pull --rebase origin main
           git push
