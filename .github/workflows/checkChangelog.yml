@@ -1,8 +1,8 @@
 name: Check and Post Changelog
 
-on:
-  schedule:
-    - cron: '0 */3 * * *' # 3時間おき
+# on:
+#   schedule:
+#     - cron: '0 */3 * * *' # 3時間おき
   workflow_dispatch:
 
 jobs:
