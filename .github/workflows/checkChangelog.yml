@@ -1,8 +1,8 @@
 name: Check and Post Changelog
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
+  # schedule:
+  #   - cron: '*/30 * * * *'
     
   workflow_dispatch:
 
