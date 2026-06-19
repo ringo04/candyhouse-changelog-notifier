@@ -1,10 +1,10 @@
 import os
 import re
 import time
-import requests
+import json
+import urllib.request
+import urllib.error
 import tweepy
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from typing import List
 
 
@@ -19,42 +19,44 @@ ELLIPSIS = "…"
 RE_HTML_TAGS = re.compile(r'<[^>]*>')
 
 
-# --- GitHub API 関連 ---
-def create_gh_session() -> requests.Session:
-    session = requests.Session()
-    token = os.getenv("GITHUB_TOKEN")
-    session.headers.update({
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "GitHub-Actions-Changelog-Fetcher"
-    })
-    if token:
-        session.headers["Authorization"] = f"token {token}"
-    
-    retry_strategy = Retry(
-        total=3, backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504]
-    )
-    session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
-    return session
-
+# --- GitHub API 関連 (requestsを排除し標準ライブラリ化) ---
 def fetch_changelog_diff(base: str, head: str) -> List[str]:
     if not base or not head:
         return ["Error: SHAが指定されていません。"]
     
     url = f"https://api.github.com/repos/{TARGET_REPO}/compare/{base}...{head}"
-    try:
-        response = create_gh_session().get(url, timeout=15)
-        response.raise_for_status()
-        files = response.json().get("files", [])
-        
-        patch = next((f.get("patch", "") for f in files if f["filename"] == TARGET_FILE), None)
-        if not patch:
+    
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "GitHub-Actions-Changelog-Fetcher"
+    }
+    token = os.getenv("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"token {token}"
+
+    req = urllib.request.Request(url, headers=headers)
+
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=15) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                files = data.get("files", [])
+                
+                patch = next((f.get("patch", "") for f in files if f["filename"] == TARGET_FILE), None)
+                if not patch:
+                    return []
+                return process_patch(patch)
+                
+        except urllib.error.HTTPError as e:
+            if e.code in [429, 500, 502, 503, 504]:
+                time.sleep(1)
+                continue
+            print(f"GitHub API Error: HTTP {e.code}")
             return []
-            
-        return process_patch(patch)
-    except Exception as e:
-        print(f"GitHub API Error: {e}")
-        return []
+        except Exception as e:
+            print(f"GitHub API Error: {e}")
+            return []
+    return []
 
 def process_patch(patch_text: str) -> List[str]:
     cleaned_lines = []
@@ -69,13 +71,14 @@ def process_patch(patch_text: str) -> List[str]:
 
 # --- ツイート整形関連 ---
 def get_text_weight(text: str) -> int:
-    return sum(1 if 32 <= ord(c) <= 126 else 2 for c in text)
+    ascii_len = len(text.encode('ascii', 'ignore'))
+    return ascii_len + (len(text) - ascii_len) * 2
 
 def truncate_text(text: str, limit: int) -> str:
     ellipsis_w = get_text_weight(ELLIPSIS)
     current_w, truncated = 0, ""
     for char in text:
-        char_w = get_text_weight(char)
+        char_w = 1 if ord(char) <= 127 else 2
         if current_w + char_w > (limit - ellipsis_w): break
         truncated += char
         current_w += char_w
@@ -84,30 +87,36 @@ def truncate_text(text: str, limit: int) -> str:
 def format_tweets(lines: List[str]) -> List[str]:
     if not lines: return []
     tweets, current_buffer = [], ""
+    current_w = 0
 
     for line in lines:
         line_w = get_text_weight(line)
+        
         if current_buffer:
-            if get_text_weight(current_buffer) + line_w + 1 <= CHARACTER_LIMIT:
+            if current_w + line_w + 1 <= CHARACTER_LIMIT:
                 current_buffer += f"\n{line}"
+                current_w += line_w + 1
                 continue
             else:
                 tweets.append(current_buffer)
                 current_buffer = ""
+                current_w = 0
         
         if line_w > CHARACTER_LIMIT:
             tweets.append(truncate_text(line, CHARACTER_LIMIT))
         else:
             current_buffer = line
+            current_w = line_w
 
     if current_buffer:
-        if get_text_weight(current_buffer) <= (CHARACTER_LIMIT - TWITTER_URL_WEIGHT - 1):
+        if current_w <= (CHARACTER_LIMIT - TWITTER_URL_WEIGHT - 1):
             tweets.append(f"{current_buffer}\n{CHANGELOG_URL}")
         else:
             tweets.append(current_buffer)
             tweets.append(CHANGELOG_URL)
     else:
         tweets.append(CHANGELOG_URL)
+        
     return tweets
 
 
