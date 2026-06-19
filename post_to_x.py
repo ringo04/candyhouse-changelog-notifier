@@ -7,7 +7,9 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from typing import List
 
+
 # --- 設定 ---
+
 TARGET_REPO = "CANDY-HOUSE/.github"
 TARGET_FILE = "changelog.html"
 CHANGELOG_URL = "jp.candyhouse.co/pages/changelog"
@@ -17,6 +19,7 @@ ELLIPSIS = "…"
 
 # 正規表現のプリコンパイル
 RE_HTML_TAGS = re.compile(r'<[^>]*>')
+
 
 # --- GitHub API 関連 ---
 
@@ -66,6 +69,7 @@ def process_patch(patch_text: str) -> List[str]:
                 cleaned_lines.append(f"{line[0]} {plain_text}")
     return cleaned_lines
 
+
 # --- ツイート整形関連 ---
 
 def get_text_weight(text: str) -> int:
@@ -110,6 +114,7 @@ def format_tweets(lines: List[str]) -> List[str]:
         tweets.append(CHANGELOG_URL)
     return tweets
 
+
 # --- X (Twitter) 投稿関連 ---
 
 def post_to_x(tweets: List[str]):
@@ -143,10 +148,10 @@ def post_to_x(tweets: List[str]):
                 time.sleep(10) # 10秒待機
         if not success: break
 
+
 # --- メイン処理 ---
 
 if __name__ == "__main__":
-    # YAMLから渡される環境変数を取得
     base_sha = os.getenv("LAST_SHA")
     head_sha = os.getenv("LATEST_SHA")
     
