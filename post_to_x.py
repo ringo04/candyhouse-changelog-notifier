@@ -9,7 +9,6 @@ from typing import List
 
 
 # --- 設定 ---
-
 TARGET_REPO = "CANDY-HOUSE/.github"
 TARGET_FILE = "changelog.html"
 CHANGELOG_URL = "jp.candyhouse.co/pages/changelog"
@@ -17,12 +16,10 @@ CHARACTER_LIMIT = 280
 TWITTER_URL_WEIGHT = 23
 ELLIPSIS = "…"
 
-# 正規表現のプリコンパイル
 RE_HTML_TAGS = re.compile(r'<[^>]*>')
 
 
 # --- GitHub API 関連 ---
-
 def create_gh_session() -> requests.Session:
     session = requests.Session()
     token = os.getenv("GITHUB_TOKEN")
@@ -52,7 +49,7 @@ def fetch_changelog_diff(base: str, head: str) -> List[str]:
         
         patch = next((f.get("patch", "") for f in files if f["filename"] == TARGET_FILE), None)
         if not patch:
-            return [] # 変更なし
+            return []
             
         return process_patch(patch)
     except Exception as e:
@@ -71,7 +68,6 @@ def process_patch(patch_text: str) -> List[str]:
 
 
 # --- ツイート整形関連 ---
-
 def get_text_weight(text: str) -> int:
     return sum(1 if 32 <= ord(c) <= 126 else 2 for c in text)
 
@@ -115,8 +111,7 @@ def format_tweets(lines: List[str]) -> List[str]:
     return tweets
 
 
-# --- X (Twitter) 投稿関連 ---
-
+# --- X 投稿関連 ---
 def post_to_x(tweets: List[str]):
     creds = {
         "consumer_key": os.getenv("X_API_KEY"),
@@ -133,7 +128,7 @@ def post_to_x(tweets: List[str]):
 
     for i, content in enumerate(tweets):
         success = False
-        for attempt in range(3): # 最大3回リトライ
+        for attempt in range(3):
             try:
                 kwargs = {"text": content}
                 if last_id: kwargs["in_reply_to_tweet_id"] = last_id
@@ -145,12 +140,11 @@ def post_to_x(tweets: List[str]):
                 break
             except Exception as e:
                 print(f"Post Attempt {attempt+1} failed: {e}")
-                time.sleep(10) # 10秒待機
+                time.sleep(10)
         if not success: break
 
 
 # --- メイン処理 ---
-
 if __name__ == "__main__":
     base_sha = os.getenv("LAST_SHA")
     head_sha = os.getenv("LATEST_SHA")
