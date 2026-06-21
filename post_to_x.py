@@ -19,7 +19,7 @@ ELLIPSIS = "…"
 RE_HTML_TAGS = re.compile(r'<[^>]*>')
 
 
-# --- GitHub API 関連 (requestsを排除し標準ライブラリ化) ---
+# --- GitHub API 関連 ---
 def fetch_changelog_diff(base: str, head: str) -> List[str]:
     if not base or not head:
         return ["Error: SHAが指定されていません。"]
