@@ -8,7 +8,7 @@ on:
 jobs:
   check-changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 3  # Job全体に3分の制限時間を追加
+    timeout-minutes: 3
     outputs:
       changed: ${{ steps.check_sha.outputs.changed }}
       new_sha: ${{ steps.check_sha.outputs.new_sha }}
@@ -19,7 +19,7 @@ jobs:
 
       - name: Check for changes
         id: check_sha
-        timeout-minutes: 2  # API通信のハング対策としてステップ個別に制限設定
+        timeout-minutes: 2
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -42,7 +42,7 @@ jobs:
     needs: check-changes
     if: needs.check-changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # すでに設定済み（5分）
+    timeout-minutes: 5
     permissions:
       contents: write
       
@@ -57,11 +57,11 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        timeout-minutes: 2  # パッケージインストール部分の個別制限
+        timeout-minutes: 2
         run: pip install -r requirements.txt
 
       - name: Post to X
-        timeout-minutes: 2  # X投稿の外部API呼び出し時の個別制限
+        timeout-minutes: 2
         env:
           LAST_SHA: ${{ needs.check-changes.outputs.old_sha }}
           LATEST_SHA: ${{ needs.check-changes.outputs.new_sha }}
